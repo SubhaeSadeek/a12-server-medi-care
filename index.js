@@ -16,8 +16,6 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-//  id: mediCampManage
-// pass: Si77MSrAvzCsHe3k
 
 
 
