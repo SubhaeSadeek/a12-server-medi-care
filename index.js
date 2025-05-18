@@ -42,6 +42,72 @@ async function run() {
 
      const database = client.db("mediCampManage");
      const campCollection = database.collection("camps");
+     const regiterCampCollection = database.collection("registerCamp");
+     const userCollection = database.collection("user")
+     
+    // ?JWT token
+     app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.JWT_SECRET, {
+        expiresIn: "1d",
+      });
+      res.send({ token });
+    });
+
+    // token varify middleware
+    
+    const verifyToken = (req, res, next) => {
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "forbidden! access denied" });
+      }
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "You dont have access Token! Unauthorized attempt!" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
+    // verify admin
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === "admin";
+      if (!isAdmin) {
+        return res.status(403).send({ message: "Forbidden Access" });
+      }
+      next();
+    };
+    app.get("/camps", async(req, res)=>{
+      const cursor =  campCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+    app.get("/camp/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await campCollection.findOne(query);
+      res.send(result);
+    });
+     // join camp/ registered camp related apis
+    app.post("/registered-camps", async (req, res) => {
+      const registeredCamp = req.body;
+      const { campId } = registeredCamp;
+      const result = await regiterCampCollection.insertOne(
+        registeredCamp
+      );
+      const updateResult = await campCollection.updateOne(
+        { _id: new ObjectId(campId) },
+        {
+          $inc: {
+            participantCount: 1,
+          },
+        }
+      );
+      res.send(result);
+    });
      
     app.get("/popular-camps", async (req, res) => {
       const result = await campCollection
@@ -51,6 +117,39 @@ async function run() {
         .toArray();
       res.send(result);
     });
+
+
+
+
+    // User add to DB
+    // users related api
+    app.post("/user", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await userCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: "user already exists", insertedId: null });
+      }
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+    // admin access
+    app.get("/user/admin/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "access denied!" });
+      }
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role === "admin";
+      }
+      res.send({ admin });
+    });
+
+
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
