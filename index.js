@@ -10,7 +10,7 @@ const app = express();
 
 // adding middleware
 app.use(cors({
-  origin:["http://localhost:5173"],
+  origin:["http://localhost:5173", "https://medi-camp-6a87f.web.app", "https://medi-camp-6a87f.firebaseapp.com"],
   credentials: true
 }));
 app.use(express.json());
@@ -35,15 +35,17 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
      const database = client.db("mediCampManage");
      const campCollection = database.collection("camps");
      const regiterCampCollection = database.collection("registerCamp");
      const userCollection = database.collection("user");
+
+     
      
     // ?JWT token
      app.post("/jwt", async (req, res) => {
