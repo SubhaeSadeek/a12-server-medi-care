@@ -91,6 +91,54 @@ async function run() {
       const result = await campCollection.findOne(query);
       res.send(result);
     });
+
+    app.post("/add-camp", async (req, res) => {
+      const newPost = req.body;
+      const result = await campCollection.insertOne(newPost);
+      res.send(result);
+    });
+
+    app.get(
+      "/camps/organizer/:email",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const email = req.params.email;
+        const search = req.query.search || "";
+        const { page = 1, limit = 10 } = req.query;
+        const query = { email: email };
+        let searchQuery = {
+          $or: [
+            { campName: { $regex: search, $options: "i" } },
+            { healthcareProfessionalName: { $regex: search, $options: "i" } },
+            { dateTime: { $regex: search, $options: "i" } },
+          ],
+        };
+
+        const finalQuery = { ...query, ...searchQuery };
+        const pageNumber = parseInt(page);
+        const limitNumber = parseInt(limit);
+        const totalCount = await campCollection.countDocuments(query);
+        const result = await campCollection
+          .find(finalQuery)
+          .skip((pageNumber - 1) * limitNumber)
+          .limit(limitNumber)
+          .toArray();
+        res.send({
+          result,
+          totalCount,
+          totalPages: Math.ceil(totalCount / limitNumber),
+          currentPage: pageNumber,
+        });
+      }
+    );
+
+      app.delete("/camp/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await campCollection.deleteOne(query);
+      res.send(result);
+    });
      // join camp/ registered camp related apis
     app.post("/registered-camps", async (req, res) => {
       const registeredCamp = req.body;
