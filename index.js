@@ -123,6 +123,13 @@ async function run() {
 
     // User add to DB
     // users related api
+
+     app.get("/user/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await userCollection.findOne(query);
+      res.send(result);
+    });
     app.post("/user", async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
@@ -134,6 +141,21 @@ async function run() {
       res.send(result);
     });
 
+      app.patch("/update-user/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const { name, photoURL, phoneNumber, address } = req.body;
+      const filter = { email: email };
+      const updateDoc = {
+        $set: {
+          name,
+          photoURL,
+          phoneNumber,
+          address,
+        },
+      };
+      const result = await userCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
     // admin access
     app.get("/user/admin/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
