@@ -43,7 +43,7 @@ async function run() {
      const database = client.db("mediCampManage");
      const campCollection = database.collection("camps");
      const regiterCampCollection = database.collection("registerCamp");
-     const userCollection = database.collection("user")
+     const userCollection = database.collection("user");
      
     // ?JWT token
      app.post("/jwt", async (req, res) => {
@@ -108,6 +108,7 @@ async function run() {
       );
       res.send(result);
     });
+
      
     app.get("/popular-camps", async (req, res) => {
       const result = await campCollection
@@ -117,9 +118,50 @@ async function run() {
         .toArray();
       res.send(result);
     });
+      app.get("/registered-camps/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const search = req.query.search || "";
+      const { page = 1, limit = 10 } = req.query;
+      const query = { participantEmail: email };
+      let searchQuery = {
+        $or: [
+          { campName: { $regex: search, $options: "i" } },
+          { confirmationStatus: { $regex: search, $options: "i" } },
+        ],
+      };
+      const finalQuery = { ...query, ...searchQuery };
+      const pageNumber = parseInt(page);
+      const limitNumber = parseInt(limit);
+      const totalCount = await regiterCampCollection.countDocuments(query);
+      const result = await regiterCampCollection
+        .find(finalQuery)
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber)
+        .toArray();
+      res.send({
+        result,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limitNumber),
+        currentPage: pageNumber,
+      });
+    });
 
-
-
+ app.delete("/registered-camps/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const registeredCamp = await regiterCampCollection.findOne(query);
+      const campId = registeredCamp.campId;
+      const result = await regiterCampCollection.deleteOne(query);
+      const updateResult = await campCollection.updateOne(
+        { _id: new ObjectId(campId) },
+        {
+          $inc: {
+            participantCount: -1,
+          },
+        }
+      );
+      res.send(result);
+    });
 
     // User add to DB
     // users related api
@@ -156,6 +198,8 @@ async function run() {
       const result = await userCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
+
+    
     // admin access
     app.get("/user/admin/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
